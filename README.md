@@ -65,8 +65,8 @@ src/
 
 ## 相关项目
 
-- [mes-api](https://github.com/xxx/mes-api) — 后端 API 服务
-- [mes-mobile](https://github.com/xxx/mes-mobile) — 移动端
+- [mes-api](https://github.com/jiujiezongheti/mes-api) — 后端 API 服务
+- [mes-mobile](https://github.com/jiujiezongheti/mes-mobile) — 移动端
 
 ## 截图
 
