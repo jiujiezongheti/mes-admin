@@ -40,6 +40,8 @@ npm run dev
 http://localhost:5173
 ```
 
+> 默认账号：`admin` / `admin123`
+
 ## 目录结构
 
 ```
@@ -67,10 +69,6 @@ src/
 
 - [mes-api](https://github.com/jiujiezongheti/mes-api) — 后端 API 服务
 - [mes-mobile](https://github.com/jiujiezongheti/mes-mobile) — 移动端
-
-## 截图
-
-> TODO
 
 ## 开源协议
 

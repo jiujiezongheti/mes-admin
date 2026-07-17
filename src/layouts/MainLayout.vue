@@ -1,29 +1,219 @@
 <script setup lang="ts">
-import { ElContainer, ElAside, ElHeader, ElMain } from 'element-plus'
+import { ref, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
+import { Expand, Fold, Odometer, UserFilled, Setting, User, Lock } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
+
+const router = useRouter()
+const route = useRoute()
+const userStore = useUserStore()
+
+const sidebarCollapsed = ref(false)
+
+interface SubMenuItem {
+  path: string
+  label: string
+  perm?: string
+}
+
+interface MenuGroup {
+  label: string
+  icon: any
+  perm?: string
+  children: SubMenuItem[]
+}
+
+const menuGroups: MenuGroup[] = [
+  {
+    label: '工作台',
+    icon: Odometer,
+    children: [{ path: '/dashboard', label: '工作台' }],
+  },
+  {
+    label: '系统管理',
+    icon: Setting,
+    children: [
+      { path: '/system/user', label: '用户管理', perm: 'admin:user:list' },
+      { path: '/system/role', label: '角色管理', perm: 'admin:role:list' },
+    ],
+  },
+]
+
+const filteredMenuGroups = computed(() =>
+  menuGroups
+    .map((group) => ({
+      ...group,
+      children: group.children.filter((child) => !child.perm || userStore.hasPerm(child.perm)),
+    }))
+    .filter((group) => group.children.length > 0)
+)
+
+const activeMenu = computed(() => route.path)
+
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
+function handleLogout() {
+  ElMessageBox.confirm('确定退出登录吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(() => {
+    userStore.logout()
+    router.push('/login')
+  })
+}
 </script>
 
 <template>
-  <ElContainer style="height: 100vh">
-    <ElAside width="220px">
-      <div class="logo">MES</div>
-    </ElAside>
-    <ElContainer>
-      <ElHeader>header</ElHeader>
-      <ElMain>
+  <el-container class="layout">
+    <el-aside :width="sidebarCollapsed ? '64px' : '220px'" class="sidebar">
+      <div class="sidebar-logo" @click="router.push('/dashboard')">
+        <div class="logo-icon">M</div>
+        <span v-show="!sidebarCollapsed" class="logo-text">MES 系统</span>
+      </div>
+      <el-menu
+        :default-active="activeMenu"
+        :collapse="sidebarCollapsed"
+        :router="true"
+        class="sidebar-menu"
+        background-color="#1a1a2e"
+        text-color="#a0aec0"
+        active-text-color="#409eff"
+      >
+        <template v-for="group in filteredMenuGroups" :key="group.label">
+          <el-menu-item v-if="group.children.length === 1" :index="group.children[0].path">
+            <el-icon><component :is="group.icon" /></el-icon>
+            <template #title>{{ group.children[0].label }}</template>
+          </el-menu-item>
+          <el-sub-menu v-else :index="group.label">
+            <template #title>
+              <el-icon><component :is="group.icon" /></el-icon>
+              <span>{{ group.label }}</span>
+            </template>
+            <el-menu-item v-for="child in group.children" :key="child.path" :index="child.path">
+              {{ child.label }}
+            </el-menu-item>
+          </el-sub-menu>
+        </template>
+      </el-menu>
+    </el-aside>
+    <el-container>
+      <el-header class="header">
+        <div class="header-left">
+          <el-button class="toggle-btn" text @click="toggleSidebar">
+            <el-icon :size="20">
+              <Expand v-if="sidebarCollapsed" />
+              <Fold v-else />
+            </el-icon>
+          </el-button>
+          <span class="header-breadcrumb">{{ route.meta?.title || route.name }}</span>
+        </div>
+        <div class="header-right">
+          <el-dropdown trigger="click" @command="handleLogout">
+            <span class="user-info">
+              <el-avatar :size="32" icon="UserFilled" />
+              <span class="username">{{ userStore.userInfo?.nickname || userStore.userInfo?.username || '用户' }}</span>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+      </el-header>
+      <el-main class="main">
         <router-view />
-      </ElMain>
-    </ElContainer>
-  </ElContainer>
+      </el-main>
+    </el-container>
+  </el-container>
 </template>
 
 <style scoped>
-.logo {
+.layout {
+  height: 100vh;
+}
+.sidebar {
+  background-color: #1a1a2e;
+  transition: width 0.3s;
+  overflow: hidden;
+}
+.sidebar-logo {
   height: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  gap: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
+  background: #409eff;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 16px;
   font-weight: bold;
+  flex-shrink: 0;
+}
+.logo-text {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sidebar-menu {
+  border-right: none;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0 20px;
+  height: 60px;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.toggle-btn {
+  color: #666;
+  font-size: 18px;
+}
+.toggle-btn:hover {
   color: #409eff;
+}
+.header-breadcrumb {
+  font-size: 16px;
+  color: #333;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+}
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.username {
+  font-size: 14px;
+  color: #333;
+}
+.main {
+  background: #f5f7fa;
+  padding: 20px;
+  overflow-y: auto;
+  min-width: 1250px;
 }
 </style>

@@ -1,4 +1,5 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
 import MainLayout from '@/layouts/MainLayout.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -14,8 +15,18 @@ const routes: RouteRecordRaw[] = [
     children: [
       {
         path: 'dashboard',
-        name: 'Dashboard',
+        name: '工作台',
         component: () => import('@/views/dashboard/Index.vue'),
+      },
+      {
+        path: 'system/user',
+        name: '用户管理',
+        component: () => import('@/views/system/UserList.vue'),
+      },
+      {
+        path: 'system/role',
+        name: '角色管理',
+        component: () => import('@/views/system/RoleList.vue'),
       },
     ],
   },
@@ -24,6 +35,13 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+router.beforeEach((to) => {
+  const token = localStorage.getItem('token')
+  if (to.name !== 'Login' && !token) {
+    return { name: 'Login' }
+  }
 })
 
 export default router
