@@ -4,10 +4,15 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { Expand, Fold, Odometer, UserFilled, Setting, User, Lock } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { useTabsStore } from '@/stores/tabs'
+import TabsBar from '@/components/TabsBar.vue'
+import ThemeSwitch from '@/components/ThemeSwitch.vue'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+
+const tabsStore = useTabsStore()
 
 const sidebarCollapsed = ref(false)
 
@@ -79,9 +84,9 @@ function handleLogout() {
         :collapse="sidebarCollapsed"
         :router="true"
         class="sidebar-menu"
-        background-color="#1a1a2e"
-        text-color="#a0aec0"
-        active-text-color="#409eff"
+        background-color="var(--sidebar-bg)"
+        text-color="var(--sidebar-text)"
+        active-text-color="var(--el-color-primary)"
       >
         <template v-for="group in filteredMenuGroups" :key="group.label">
           <el-menu-item v-if="group.children.length === 1" :index="group.children[0].path">
@@ -109,9 +114,10 @@ function handleLogout() {
               <Fold v-else />
             </el-icon>
           </el-button>
-          <span class="header-breadcrumb">{{ route.meta?.title || route.name }}</span>
+          <span class="header-breadcrumb">{{ route.meta?.title as string || (route.name as string) }}</span>
         </div>
         <div class="header-right">
+          <ThemeSwitch />
           <el-dropdown trigger="click" @command="handleLogout">
             <span class="user-info">
               <el-avatar :size="32" icon="UserFilled" />
@@ -125,8 +131,13 @@ function handleLogout() {
           </el-dropdown>
         </div>
       </el-header>
+      <TabsBar />
       <el-main class="main">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <keep-alive :include="tabsStore.tabComponentNames">
+            <component :is="Component" />
+          </keep-alive>
+        </router-view>
       </el-main>
     </el-container>
   </el-container>
@@ -137,7 +148,7 @@ function handleLogout() {
   height: 100vh;
 }
 .sidebar {
-  background-color: #1a1a2e;
+  background-color: var(--sidebar-bg);
   transition: width 0.3s;
   overflow: hidden;
 }
@@ -155,7 +166,7 @@ function handleLogout() {
   height: 32px;
   line-height: 32px;
   text-align: center;
-  background: #409eff;
+  background: var(--el-color-primary);
   color: #fff;
   border-radius: 8px;
   font-size: 16px;
@@ -175,8 +186,8 @@ function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--header-border);
   padding: 0 20px;
   height: 60px;
 }
@@ -190,7 +201,7 @@ function handleLogout() {
   font-size: 18px;
 }
 .toggle-btn:hover {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 .header-breadcrumb {
   font-size: 16px;
@@ -211,7 +222,7 @@ function handleLogout() {
   color: #333;
 }
 .main {
-  background: #f5f7fa;
+  background: var(--main-bg);
   padding: 20px;
   overflow-y: auto;
   min-width: 1250px;

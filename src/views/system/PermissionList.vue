@@ -27,7 +27,7 @@ onMounted(fetchData)
       <div class="table-header">
         <span class="table-title">权限列表</span>
       </div>
-      <el-table :data="treeData" v-loading="loading" stripe row-key="id" default-expand-all border>
+      <el-table :data="treeData" v-loading="loading" stripe row-key="id" default-expand-all>
         <el-table-column prop="name" label="权限名称" width="200" />
         <el-table-column prop="code" label="权限标识" width="250" />
         <el-table-column prop="type" label="类型" width="100">

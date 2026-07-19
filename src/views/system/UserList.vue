@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'UserList' })
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Download, Upload } from '@element-plus/icons-vue'
@@ -188,7 +189,7 @@ onMounted(() => {
 
 <template>
   <div class="user-list">
-    <el-card>
+    <el-card class="search-card">
       <SearchBar
         v-model="searchForm"
         :fields="fields"
@@ -197,13 +198,15 @@ onMounted(() => {
         @reset="handleReset"
         @expand="onExpand"
       />
+    </el-card>
 
+    <el-card>
       <div class="toolbar">
         <div class="toolbar-left">
-          <el-button type="primary" :icon="Plus" v-permission="'admin:user:create'" @click="handleAdd">新增用户</el-button>
-          <el-button type="success" :icon="Upload" v-permission="'admin:user:import'" @click="importDialogRef?.open()">导入</el-button>
-          <el-button type="warning" :icon="Download" v-permission="'admin:user:export'" @click="handleExportAll">全部导出</el-button>
-          <el-button type="warning" :icon="Download" :disabled="selectedIds.length === 0" v-permission="'admin:user:export'" @click="handleExportSelected">导出选中</el-button>
+          <el-button text type="primary" :icon="Plus" v-permission="'admin:user:create'" @click="handleAdd">新增用户</el-button>
+          <el-button text type="primary" :icon="Upload" v-permission="'admin:user:import'" @click="importDialogRef?.open()">导入</el-button>
+          <el-button text type="primary" :icon="Download" v-permission="'admin:user:export'" @click="handleExportAll">全部导出</el-button>
+          <el-button text type="primary" :icon="Download" :disabled="selectedIds.length === 0" v-permission="'admin:user:export'" @click="handleExportSelected">导出选中</el-button>
         </div>
         <div class="toolbar-right">
           <ColumnSettings
@@ -219,7 +222,6 @@ onMounted(() => {
         :data="tableData"
         v-loading="loading"
         stripe
-        border
         @selection-change="(val: any[]) => selectedIds = val.map((v: any) => v.id)"
       >
         <el-table-column type="selection" width="50" />
@@ -239,8 +241,8 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="操作" min-width="140" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="primary" v-permission="'admin:user:edit'" @click="handleEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" v-permission="'admin:user:delete'" @click="handleDelete(row.id)">删除</el-button>
+            <el-button text size="small" type="primary" v-permission="'admin:user:edit'" @click="handleEdit(row)">编辑</el-button>
+            <el-button text size="small" type="danger" v-permission="'admin:user:delete'" @click="handleDelete(row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -307,14 +309,17 @@ onMounted(() => {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSave">保存</el-button>
+        <el-button text @click="dialogVisible = false">取消</el-button>
+        <el-button text type="primary" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <style scoped>
+.search-card {
+  margin-bottom: 12px;
+}
 .toolbar {
   display: flex;
   justify-content: space-between;

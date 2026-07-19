@@ -162,8 +162,8 @@ defineExpose({ open })
       </div>
     </div>
     <template #footer>
-      <el-button @click="handleReset">重置并关闭</el-button>
-      <el-button type="primary" :icon="Filter" @click="handleSearch">筛选</el-button>
+      <el-button text @click="handleReset">重置并关闭</el-button>
+      <el-button text type="primary" :icon="Filter" @click="handleSearch">筛选</el-button>
     </template>
   </el-dialog>
 
@@ -171,6 +171,7 @@ defineExpose({ open })
     <p style="margin-bottom:12px">常用搜索已达上限（3 个），请选择一个替换：</p>
     <div class="replace-list">
       <el-button
+        text
         v-for="f in pinnedFields"
         :key="f.key"
         class="replace-item"
@@ -243,7 +244,7 @@ defineExpose({ open })
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background: #f5f7fa;
+  background: var(--main-bg);
   border: 1px solid #e4e7ed;
   border-radius: 6px;
 }

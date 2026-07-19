@@ -74,7 +74,7 @@ defineExpose({ open })
         :on-change="(e: any) => handleUpload(e.raw)"
         accept=".xlsx,.xls"
       >
-        <el-icon :size="40" color="#409eff"><UploadFilled /></el-icon>
+        <el-icon :size="40" color="var(--el-color-primary)"><UploadFilled /></el-icon>
         <div class="el-upload__text">将文件拖到此处或 <em>点击上传</em></div>
         <template #tip>
           <div class="el-upload__tip">仅支持 .xlsx 文件</div>

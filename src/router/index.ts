@@ -16,16 +16,19 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'dashboard',
         name: '工作台',
+        meta: { title: '工作台', componentName: 'DashboardIndex', affix: true },
         component: () => import('@/views/dashboard/Index.vue'),
       },
       {
         path: 'system/user',
         name: '用户管理',
+        meta: { title: '用户管理', componentName: 'UserList' },
         component: () => import('@/views/system/UserList.vue'),
       },
       {
         path: 'system/role',
         name: '角色管理',
+        meta: { title: '角色管理', componentName: 'RoleList' },
         component: () => import('@/views/system/RoleList.vue'),
       },
     ],

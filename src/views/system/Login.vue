@@ -106,7 +106,7 @@ async function handleLogin() {
   margin: 0 0 36px;
   font-size: 24px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--sidebar-bg);
   text-align: center;
   letter-spacing: 2px;
 }

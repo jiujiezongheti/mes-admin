@@ -66,12 +66,12 @@ function handleReset() {
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
+          <el-button text type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
+          <el-button text @click="handleReset">重置</el-button>
         </el-form-item>
       </el-form>
     </div>
-    <el-button class="expand-btn" :icon="Filter" @click="emit('expand', { ...form })">更多筛选</el-button>
+    <el-button text class="expand-btn" :icon="Filter" @click="emit('expand', { ...form })">更多筛选</el-button>
   </div>
 </template>
 
@@ -80,10 +80,10 @@ function handleReset() {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  background: #f0f2f5;
+  background: transparent;
   padding: 12px 16px;
   border-radius: 8px;
-  margin-bottom: 16px;
+
 }
 .search-fields {
   flex: 1;

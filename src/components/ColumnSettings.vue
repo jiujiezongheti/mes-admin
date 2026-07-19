@@ -64,7 +64,7 @@ function onDragEnd() {
 </script>
 
 <template>
-  <el-button :icon="Setting" @click="open">列设置</el-button>
+  <el-button text :icon="Setting" @click="open">列设置</el-button>
   <el-dialog v-model="dialogVisible" title="列设置" width="520px" append-to-body :close-on-click-modal="false">
     <div class="column-toolbar">
       <el-checkbox :model-value="allChecked" @change="toggleAll">
@@ -94,9 +94,9 @@ function onDragEnd() {
       </div>
     </div>
     <template #footer>
-      <el-button @click="handleReset">恢复默认</el-button>
-      <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button type="primary" @click="handleSave">保存</el-button>
+      <el-button text @click="handleReset">恢复默认</el-button>
+      <el-button text @click="dialogVisible = false">取消</el-button>
+      <el-button text type="primary" @click="handleSave">保存</el-button>
     </template>
   </el-dialog>
 </template>
