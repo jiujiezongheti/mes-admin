@@ -49,6 +49,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '计量单位', componentName: 'UnitList' },
         component: () => import('@/views/material/Unit.vue'),
       },
+      {
+        path: 'production/bom',
+        name: 'BOM管理',
+        meta: { title: 'BOM管理', componentName: 'BomList' },
+        component: () => import('@/views/production/BomList.vue'),
+      },
     ],
   },
 ]
