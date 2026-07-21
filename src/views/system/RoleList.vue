@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({ name: 'RoleList' })
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Download, Upload } from '@element-plus/icons-vue'
 import { getRoleList, createRole, updateRole, deleteRole, getRolePermissionIds, bindRolePermissions, roleExportUrl, roleImportUrl } from '@/api/role'
@@ -13,6 +13,7 @@ import ColumnSettings from '@/components/ColumnSettings.vue'
 import SearchBar from '@/components/SearchBar.vue'
 import ImportDialog from '@/components/ImportDialog.vue'
 import SearchDialog from '@/components/SearchDialog.vue'
+import SearchTags from '@/components/SearchTags.vue'
 
 const columnDefs = [
   { prop: 'id', label: 'ID', width: 80 },
@@ -20,6 +21,7 @@ const columnDefs = [
   { prop: 'code', label: '角色标识', width: 150 },
   { prop: 'status', label: '状态', width: 80 },
   { prop: 'remark', label: '备注', width: 200 },
+  { prop: 'sort', label: '排序', width: 70 },
 ]
 
 const { columns, visibleColumns, reset: resetColumns } = useColumns('role', columnDefs)
@@ -57,9 +59,86 @@ const rules = {
 const permDialogVisible = ref(false)
 const permRoleId = ref(0)
 const permTree = ref<any[]>([])
-const checkedPermIds = ref<number[]>([])
-const defaultCheckedKeys = ref<number[]>([])
-const permTreeRef = ref()
+const menuTreeRef = ref()
+
+const selectedMenuId = ref<number | null>(null)
+const btnCheckedMap = ref<Record<number, boolean>>({})
+
+const menuTree = computed(() => {
+  return permTree.value.map((dir: any) => ({
+    ...dir,
+    children: (dir.children || [])
+      .filter((m: any) => m.type === 'menu')
+      .map((m: any) => ({ ...m, children: undefined })),
+  }))
+})
+
+const selectedMenuName = computed(() => {
+  if (!selectedMenuId.value) return ''
+  for (const dir of permTree.value) {
+    for (const menu of (dir.children || [])) {
+      if (menu.id === selectedMenuId.value) return menu.name
+    }
+  }
+  return ''
+})
+
+const currentMenuBtns = computed(() => {
+  if (!selectedMenuId.value) return []
+  for (const dir of permTree.value) {
+    for (const menu of (dir.children || [])) {
+      if (menu.id === selectedMenuId.value) {
+        return (menu.children || []).filter((c: any) => c.type === 'btn')
+      }
+    }
+  }
+  return []
+})
+
+const isAllBtnsChecked = computed(() => {
+  const btns = currentMenuBtns.value
+  if (btns.length === 0) return false
+  return btns.every((b: any) => btnCheckedMap.value[b.id])
+})
+
+function onMenuCheck(data: any, _checked: any) {
+  if (data.type === 'menu') {
+    selectedMenuId.value = data.id
+  }
+  const checked = menuTreeRef.value?.getCheckedKeys() ?? []
+  const halfChecked = menuTreeRef.value?.getHalfCheckedKeys() ?? []
+  if (selectedMenuId.value && !checked.includes(selectedMenuId.value) && !halfChecked.includes(selectedMenuId.value)) {
+    const btns = currentMenuBtns.value
+    btns.forEach((b: any) => { btnCheckedMap.value[b.id] = false })
+  }
+}
+
+function onViewMenu(data: any) {
+  if (data.type !== 'menu') return
+  selectedMenuId.value = data.id
+}
+
+function syncMenuCheck(menuId: number) {
+  if (!menuTreeRef.value) return
+  const anyChecked = currentMenuBtns.value.some((b: any) => btnCheckedMap.value[b.id])
+  if (anyChecked) {
+    menuTreeRef.value.setChecked(menuId, true, true)
+  }
+}
+
+function toggleBtn(id: number) {
+  btnCheckedMap.value[id] = !btnCheckedMap.value[id]
+  if (selectedMenuId.value) syncMenuCheck(selectedMenuId.value)
+}
+
+function toggleAllBtns(checked: boolean) {
+  currentMenuBtns.value.forEach((b: any) => {
+    btnCheckedMap.value[b.id] = checked
+  })
+  if (selectedMenuId.value && menuTreeRef.value && checked) {
+    menuTreeRef.value.setChecked(selectedMenuId.value, true, true)
+  }
+}
 
 async function fetchData() {
   loading.value = true
@@ -98,7 +177,7 @@ function handleAdd() {
 
 function handleEdit(row: any) {
   dialogTitle.value = '编辑角色'
-  form.value = { ...row }
+  form.value = { ...row, status: row.status ? 1 : 0 }
   dialogVisible.value = true
 }
 
@@ -133,28 +212,41 @@ async function loadPermTree() {
 
 async function openPermDialog(row: any) {
   permRoleId.value = row.id
-  checkedPermIds.value = []
-  defaultCheckedKeys.value = []
+  selectedMenuId.value = null
+  btnCheckedMap.value = {}
 
+  let ids: number[] = []
   try {
     const res = await getRolePermissionIds(row.id)
-    checkedPermIds.value = res.data as number[]
-    defaultCheckedKeys.value = [...checkedPermIds.value]
+    ids = res.data as number[]
+    for (const id of ids) {
+      btnCheckedMap.value[id] = true
+    }
   } catch {}
 
   permDialogVisible.value = true
 
   setTimeout(() => {
-    if (permTreeRef.value) {
-      permTreeRef.value.setCheckedKeys(checkedPermIds.value)
+    if (menuTreeRef.value) {
+      const allMenuIds = new Set<number>()
+      for (const dir of permTree.value) {
+        for (const menu of (dir.children || [])) {
+          if (menu.type === 'menu') allMenuIds.add(menu.id)
+        }
+      }
+      const menuChecked = ids.filter((id: number) => allMenuIds.has(id))
+      menuTreeRef.value.setCheckedKeys(menuChecked)
     }
   }, 100)
 }
 
 async function handleSavePerm() {
-  const checked = permTreeRef.value?.getCheckedKeys() ?? []
-  const halfChecked = permTreeRef.value?.getHalfCheckedKeys() ?? []
-  const allIds = [...checked, ...halfChecked]
+  const menuChecked = menuTreeRef.value?.getCheckedKeys() ?? []
+  const menuHalf = menuTreeRef.value?.getHalfCheckedKeys() ?? []
+  const btnIds = Object.keys(btnCheckedMap.value)
+    .filter((k) => btnCheckedMap.value[Number(k)])
+    .map(Number)
+  const allIds = [...new Set([...menuChecked, ...menuHalf, ...btnIds])]
 
   await bindRolePermissions(permRoleId.value, allIds)
   ElMessage.success('权限绑定成功')
@@ -176,6 +268,20 @@ function handleExportSelected() {
 function onExpand(form: Record<string, unknown>) {
   searchForm.value = form
   searchDialogRef.value?.open(form)
+}
+
+function handleRemoveTag(key: string) {
+  const newForm = { ...searchForm.value }
+  delete newForm[key]
+  searchForm.value = newForm
+  page.value = 1
+  fetchData()
+}
+
+function handleClearTags() {
+  searchForm.value = {}
+  page.value = 1
+  fetchData()
 }
 
 const importDialogRef = ref<InstanceType<typeof ImportDialog>>()
@@ -212,6 +318,14 @@ onMounted(() => {
         @expand="onExpand"
       />
     </el-card>
+
+    <SearchTags
+      v-if="searchForm && Object.keys(searchForm).length > 0"
+      :fields="searchFields"
+      :model-value="searchForm"
+      @remove="handleRemoveTag"
+      @clear="handleClearTags"
+    />
 
     <el-card>
       <div class="toolbar">
@@ -287,7 +401,7 @@ onMounted(() => {
       :pinned-fields="pinnedFields"
       :unpinned-fields="unpinnedFields"
       :is-pinned="isPinned"
-      :current-form="searchForm.value"
+      :current-form="searchForm"
       @pin="pin"
       @unpin="unpin"
       @replace="replace"
@@ -306,9 +420,10 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.sort" :min="0" />
+          <span style="font-size:12px;color:#999;margin-left:8px">数值越小排名越靠前，默认 0</span>
         </el-form-item>
         <el-form-item label="状态">
-          <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
+          <el-switch v-model="form.status" :active-value="1" :inactive-value="0" active-text="启用" inactive-text="禁用" />
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.remark" type="textarea" />
@@ -320,15 +435,55 @@ onMounted(() => {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="permDialogVisible" title="分配权限" width="500px" :close-on-click-modal="false">
-      <el-tree
-        ref="permTreeRef"
-        :data="permTree"
-        show-checkbox
-        node-key="id"
-        :props="{ label: 'name', children: 'children' }"
-        default-expand-all
-      />
+    <el-dialog v-model="permDialogVisible" title="分配权限" width="640px" :close-on-click-modal="false">
+      <div class="perm-layout">
+        <div class="perm-menu">
+          <div class="perm-section-title">菜单列表</div>
+          <el-tree
+            ref="menuTreeRef"
+            :data="menuTree"
+            show-checkbox
+            node-key="id"
+            :props="{ label: 'name', children: 'children' }"
+            default-expand-all
+            @check="onMenuCheck"
+          >
+            <template #default="{ data }">
+              <span v-if="data.type === 'menu'" class="perm-menu-label" @click.stop="onViewMenu(data)">{{ data.name }}</span>
+              <span v-else class="perm-menu-label">{{ data.name }}</span>
+            </template>
+          </el-tree>
+        </div>
+        <div class="perm-divider" />
+        <div class="perm-btns">
+          <div class="perm-section-title">
+            {{ selectedMenuName ? selectedMenuName + ' - 按钮权限' : '按钮权限' }}
+          </div>
+          <div v-if="!selectedMenuId" class="perm-placeholder">请在左侧点击菜单以查看按钮权限</div>
+          <template v-else-if="currentMenuBtns.length === 0">
+            <div class="perm-placeholder">该菜单下没有按钮权限</div>
+          </template>
+          <template v-else>
+            <el-checkbox
+              :model-value="isAllBtnsChecked"
+              :indeterminate="!isAllBtnsChecked && currentMenuBtns.some((b: any) => btnCheckedMap[b.id])"
+              @change="toggleAllBtns"
+            >
+              全选/取消全选
+            </el-checkbox>
+            <div class="perm-btn-list">
+              <el-checkbox
+                v-for="btn in currentMenuBtns"
+                :key="btn.id"
+                :model-value="!!btnCheckedMap[btn.id]"
+                @change="toggleBtn(btn.id)"
+              >
+                {{ btn.name }}
+              </el-checkbox>
+            </div>
+          </template>
+        </div>
+      </div>
       <template #footer>
         <el-button text @click="permDialogVisible = false">取消</el-button>
         <el-button text type="primary" @click="handleSavePerm">保存</el-button>
@@ -356,5 +511,66 @@ onMounted(() => {
   margin-top: 16px;
   display: flex;
   justify-content: end;
+}
+.perm-layout {
+  display: flex;
+  min-height: 360px;
+}
+.perm-menu {
+  width: 200px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+.perm-divider {
+  width: 1px;
+  background: var(--header-border, #e5e7eb);
+  margin: 0 16px;
+  flex-shrink: 0;
+}
+.perm-btns {
+  flex: 1;
+  overflow-y: auto;
+  padding-left: 4px;
+}
+.perm-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+}
+.perm-placeholder {
+  color: #999;
+  font-size: 13px;
+  margin-top: 60px;
+  text-align: center;
+}
+.perm-btn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.perm-btn-list .el-checkbox {
+  margin-right: 0;
+}
+.perm-menu :deep(.el-tree-node__label) {
+  flex: 1;
+  overflow: hidden;
+}
+.perm-menu :deep(.el-tree-node__content) {
+  pointer-events: none;
+}
+.perm-menu :deep(.el-tree-node__checkbox),
+.perm-menu :deep(.el-tree-node__expand-icon),
+.perm-menu-label {
+  pointer-events: auto;
+}
+.perm-menu-label {
+  display: inline-block;
+  width: 100%;
+  cursor: pointer;
+}
+.perm-menu-label:hover {
+  color: var(--el-color-primary);
 }
 </style>

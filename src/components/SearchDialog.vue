@@ -29,6 +29,7 @@ const pendingPinKey = ref('')
 
 function open(formData?: Record<string, unknown>) {
   const source = formData ?? props.currentForm
+  Object.keys(form).forEach((k) => delete form[k])
   Object.assign(form, JSON.parse(JSON.stringify(source ?? {})))
   dialogVisible.value = true
 }

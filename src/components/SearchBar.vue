@@ -19,6 +19,7 @@ const emit = defineEmits<{
 const form = reactive<Record<string, unknown>>({})
 
 watch(() => props.modelValue, (val) => {
+  Object.keys(form).forEach((k) => delete form[k])
   Object.assign(form, val)
 }, { deep: true, immediate: true })
 

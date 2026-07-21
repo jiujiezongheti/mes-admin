@@ -31,6 +31,24 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '角色管理', componentName: 'RoleList' },
         component: () => import('@/views/system/RoleList.vue'),
       },
+      {
+        path: 'material/list',
+        name: '物料档案',
+        meta: { title: '物料档案', componentName: 'MaterialList' },
+        component: () => import('@/views/material/List.vue'),
+      },
+      {
+        path: 'material/category',
+        name: '物料分类',
+        meta: { title: '物料分类', componentName: 'MaterialCategory' },
+        component: () => import('@/views/material/Category.vue'),
+      },
+      {
+        path: 'material/unit',
+        name: '计量单位',
+        meta: { title: '计量单位', componentName: 'UnitList' },
+        component: () => import('@/views/material/Unit.vue'),
+      },
     ],
   },
 ]

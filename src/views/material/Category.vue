@@ -1,45 +1,39 @@
 <script setup lang="ts">
-defineOptions({ name: 'UserList' })
+defineOptions({ name: 'MaterialCategory' })
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Download, Upload } from '@element-plus/icons-vue'
-import { getUserList, createUser, updateUser, deleteUser, userExportUrl, userImportUrl } from '@/api/user'
-import { getAllRoles } from '@/api/role'
+import { getCategoryList, getAllCategories, createCategory, updateCategory, deleteCategory, categoryExportUrl, categoryImportUrl } from '@/api/material-category'
 import { PAGE_SIZES, DEFAULT_PAGE_SIZE } from '@/config/pagination'
 import { useColumns } from '@/composables/useColumns'
 import { useExport } from '@/composables/useExport'
 import { useSearch } from '@/composables/useSearch'
-import ColumnSettings from '@/components/ColumnSettings.vue'
-import ImportDialog from '@/components/ImportDialog.vue'
 import SearchBar from '@/components/SearchBar.vue'
 import SearchDialog from '@/components/SearchDialog.vue'
 import SearchTags from '@/components/SearchTags.vue'
+import ColumnSettings from '@/components/ColumnSettings.vue'
+import ImportDialog from '@/components/ImportDialog.vue'
 
 const columnDefs = [
-  { prop: 'id', label: 'ID', width: 80 },
-  { prop: 'username', label: '用户名', width: 150 },
-  { prop: 'nickname', label: '昵称', width: 150 },
-  { prop: 'phone', label: '手机号', width: 140 },
-  { prop: 'email', label: '邮箱', width: 180 },
-  { prop: 'role_name', label: '角色', width: 130 },
+  { prop: 'code', label: '分类编码', width: 150 },
+  { prop: 'name', label: '分类名称', minWidth: 200 },
+  { prop: 'sort', label: '排序', width: 80 },
   { prop: 'status', label: '状态', width: 80 },
 ]
 
-const { columns, visibleColumns, reset: resetColumns } = useColumns('user', columnDefs)
+const { columns, visibleColumns, reset: resetColumns } = useColumns('material-category', columnDefs)
 const { doExport } = useExport()
 
 const searchFields = [
-  { key: 'username', label: '用户名', type: 'input' as const },
-  { key: 'nickname', label: '昵称', type: 'input' as const },
-  { key: 'phone', label: '手机号', type: 'input' as const },
-  { key: 'email', label: '邮箱', type: 'input' as const },
+  { key: 'code', label: '分类编码', type: 'input' as const },
+  { key: 'name', label: '分类名称', type: 'input' as const },
   { key: 'status', label: '状态', type: 'select' as const, options: [{ label: '启用', value: 1 }, { label: '禁用', value: 0 }] },
 ]
 
 const {
   pinnedFields, unpinnedFields, isPinned, fields,
   pin, unpin, replace, reorder,
-} = useSearch('user', searchFields)
+} = useSearch('material-category', searchFields)
 
 const tableData = ref<any[]>([])
 const total = ref(0)
@@ -49,34 +43,30 @@ const loading = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref()
-const roles = ref<any[]>([])
 
 const selectedIds = ref<number[]>([])
 const searchForm = ref<Record<string, unknown>>({})
 
 const form = ref({
   id: 0,
-  username: '',
-  password: '',
-  nickname: '',
-  phone: '',
-  email: '',
+  code: '',
+  name: '',
+  sort: 0,
   status: 1,
-  role_ids: [] as number[],
+  remark: '',
 })
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  code: [{ required: true, message: '请输入分类编码', trigger: 'blur' }],
+  name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }],
 }
 
 async function fetchData() {
   loading.value = true
   try {
     const params = { page: page.value, pageSize: pageSize.value, ...searchForm.value }
-    if (!params.status && params.status !== 0) {
-      delete params.status
-    }
-    const res = await getUserList(params)
+    if (params.status === '' || params.status === undefined) delete params.status
+    const res = await getCategoryList(params)
     tableData.value = res.data.list as any[]
     total.value = res.data.total as number
   } catch (e: any) {
@@ -86,8 +76,8 @@ async function fetchData() {
   }
 }
 
-function handleSearch(form: Record<string, unknown>) {
-  searchForm.value = form
+function handleSearch(f: Record<string, unknown>) {
+  searchForm.value = f
   page.value = 1
   fetchData()
 }
@@ -98,32 +88,28 @@ function handleReset() {
   fetchData()
 }
 
-async function handleAdd() {
-  await loadRoles()
-  dialogTitle.value = '新增用户'
-  form.value = { id: 0, username: '', password: '', nickname: '', phone: '', email: '', status: 1, role_ids: [] }
+function handleAdd() {
+  dialogTitle.value = '新增分类'
+  form.value = { id: 0, code: '', name: '', sort: 0, status: 1, remark: '' }
   dialogVisible.value = true
 }
 
-async function handleEdit(row: any) {
-  await loadRoles()
-  dialogTitle.value = '编辑用户'
+function handleEdit(row: any) {
+  dialogTitle.value = '编辑分类'
   form.value = {
     id: row.id,
-    username: row.username,
-    password: '',
-    nickname: row.nickname,
-    phone: row.phone || '',
-    email: row.email || '',
+    code: row.code || '',
+    name: row.name,
+    sort: row.sort ?? 0,
     status: row.status ? 1 : 0,
-    role_ids: row.role_ids || [],
+    remark: row.remark || '',
   }
   dialogVisible.value = true
 }
 
 async function handleDelete(id: number) {
-  await ElMessageBox.confirm('确定删除该用户吗？', '提示', { type: 'warning' })
-  await deleteUser(id)
+  await ElMessageBox.confirm('确定删除该分类吗？', '提示', { type: 'warning' })
+  await deleteCategory(id)
   ElMessage.success('删除成功')
   fetchData()
 }
@@ -133,38 +119,19 @@ async function handleSave() {
   if (!valid) return
 
   if (form.value.id) {
-    await updateUser(form.value)
+    await updateCategory(form.value)
     ElMessage.success('修改成功')
   } else {
-    await createUser(form.value)
+    await createCategory(form.value)
     ElMessage.success('创建成功')
   }
   dialogVisible.value = false
   fetchData()
 }
 
-async function loadRoles() {
-  try {
-    const res = await getAllRoles()
-    roles.value = res.data as any[]
-  } catch {}
-}
-
-function handleExportAll() {
-  doExport(userExportUrl, '用户列表.xlsx')
-}
-
-function handleExportSelected() {
-  if (selectedIds.value.length === 0) {
-    ElMessage.warning('请先选择要导出的用户')
-    return
-  }
-  doExport(userExportUrl, '用户列表.xlsx', selectedIds.value)
-}
-
-function onExpand(form: Record<string, unknown>) {
-  searchForm.value = form
-  searchDialogRef.value?.open(form)
+function onExpand(f: Record<string, unknown>) {
+  searchForm.value = f
+  searchDialogRef.value?.open(f)
 }
 
 function handleRemoveTag(key: string) {
@@ -181,13 +148,24 @@ function handleClearTags() {
   fetchData()
 }
 
-const importDialogRef = ref<InstanceType<typeof ImportDialog>>()
-const searchDialogRef = ref<InstanceType<typeof SearchDialog>>()
+function handleExportAll() {
+  doExport(categoryExportUrl, '物料分类.xlsx')
+}
+
+function handleExportSelected() {
+  if (selectedIds.value.length === 0) {
+    ElMessage.warning('请先选择要导出的分类')
+    return
+  }
+  doExport(categoryExportUrl, '物料分类.xlsx', selectedIds.value)
+}
 
 function handleImportSuccess() {
   fetchData()
 }
 
+const searchDialogRef = ref<InstanceType<typeof SearchDialog>>()
+const importDialogRef = ref<InstanceType<typeof ImportDialog>>()
 const columnSettingsRef = ref<InstanceType<typeof ColumnSettings>>()
 
 function onSaveColumns(val: any[]) {
@@ -200,12 +178,11 @@ function onResetColumns() {
 
 onMounted(() => {
   fetchData()
-  loadRoles()
 })
 </script>
 
 <template>
-  <div class="user-list">
+  <div class="material-category">
     <el-card class="search-card">
       <SearchBar
         v-model="searchForm"
@@ -228,10 +205,10 @@ onMounted(() => {
     <el-card>
       <div class="toolbar">
         <div class="toolbar-left">
-          <el-button text type="primary" :icon="Plus" v-permission="'admin:user:create'" @click="handleAdd">新增用户</el-button>
-          <el-button text type="primary" :icon="Upload" v-permission="'admin:user:import'" @click="importDialogRef?.open()">导入</el-button>
-          <el-button text type="primary" :icon="Download" v-permission="'admin:user:export'" @click="handleExportAll">全部导出</el-button>
-          <el-button text type="primary" :icon="Download" :disabled="selectedIds.length === 0" v-permission="'admin:user:export'" @click="handleExportSelected">导出选中</el-button>
+          <el-button text type="primary" :icon="Plus" v-permission="'admin:material:category:create'" @click="handleAdd">新增分类</el-button>
+          <el-button text type="primary" :icon="Upload" v-permission="'admin:material:category:import'" @click="importDialogRef?.open()">导入</el-button>
+          <el-button text type="primary" :icon="Download" v-permission="'admin:material:category:export'" @click="handleExportAll">全部导出</el-button>
+          <el-button text type="primary" :icon="Download" :disabled="selectedIds.length === 0" v-permission="'admin:material:category:export'" @click="handleExportSelected">导出选中</el-button>
         </div>
         <div class="toolbar-right">
           <ColumnSettings
@@ -256,6 +233,7 @@ onMounted(() => {
           :prop="col.prop"
           :label="col.label"
           :width="col.width"
+          :min-width="col.minWidth"
           show-overflow-tooltip
         >
           <template v-if="col.prop === 'status'" #default="{ row }">
@@ -266,8 +244,8 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="操作" min-width="140" fixed="right">
           <template #default="{ row }">
-            <el-button text size="small" type="primary" v-permission="'admin:user:edit'" @click="handleEdit(row)">编辑</el-button>
-            <el-button text size="small" type="danger" v-permission="'admin:user:delete'" @click="handleDelete(row.id)">删除</el-button>
+            <el-button text size="small" type="primary" v-permission="'admin:material:category:edit'" @click="handleEdit(row)">编辑</el-button>
+            <el-button text size="small" type="danger" v-permission="'admin:material:category:delete'" @click="handleDelete(row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -285,6 +263,13 @@ onMounted(() => {
       </div>
     </el-card>
 
+    <ImportDialog
+      ref="importDialogRef"
+      title="导入物料分类"
+      :action="categoryImportUrl"
+      @success="handleImportSuccess"
+    />
+
     <SearchDialog
       ref="searchDialogRef"
       :fields="fields"
@@ -300,37 +285,22 @@ onMounted(() => {
       @reset="handleReset"
     />
 
-    <ImportDialog
-      ref="importDialogRef"
-      title="导入用户"
-      :action="userImportUrl"
-      @success="handleImportSuccess"
-    />
-
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px" :close-on-click-modal="false">
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" />
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+        <el-form-item label="分类编码" prop="code">
+          <el-input v-model="form.code" />
         </el-form-item>
-        <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" type="password" :placeholder="form.id ? '留空则不修改' : ''" />
+        <el-form-item label="分类名称" prop="name">
+          <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item label="昵称">
-          <el-input v-model="form.nickname" />
-        </el-form-item>
-        <el-form-item label="手机号">
-          <el-input v-model="form.phone" />
-        </el-form-item>
-        <el-form-item label="邮箱">
-          <el-input v-model="form.email" />
+        <el-form-item label="排序">
+          <el-input-number v-model="form.sort" :min="0" style="width:100%" />
         </el-form-item>
         <el-form-item label="状态">
           <el-switch v-model="form.status" :active-value="1" :inactive-value="0" active-text="启用" inactive-text="禁用" />
         </el-form-item>
-        <el-form-item label="角色">
-          <el-select v-model="form.role_ids" multiple placeholder="请选择角色" style="width:100%">
-            <el-option v-for="r in roles" :key="r.id" :label="r.name" :value="r.id" />
-          </el-select>
+        <el-form-item label="备注">
+          <el-input v-model="form.remark" type="textarea" :rows="3" />
         </el-form-item>
       </el-form>
       <template #footer>

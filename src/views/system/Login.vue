@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
@@ -22,6 +22,50 @@ const rules = {
 
 const formRef = ref()
 
+const loginRef = ref<HTMLElement>()
+const glowX = ref(50)
+const glowY = ref(50)
+let idleAngle = 0
+let isIdle = false
+let mouseTimer: ReturnType<typeof setTimeout> | null = null
+let rafId = 0
+
+function onMouseMove(e: MouseEvent) {
+  if (!loginRef.value) return
+  const rect = loginRef.value.getBoundingClientRect()
+  glowX.value = ((e.clientX - rect.left) / rect.width) * 100
+  glowY.value = ((e.clientY - rect.top) / rect.height) * 100
+  isIdle = false
+
+  if (mouseTimer) clearTimeout(mouseTimer)
+  mouseTimer = setTimeout(() => {
+    isIdle = true
+  }, 2000)
+}
+
+function animate() {
+  if (isIdle) {
+    idleAngle += 0.003
+    glowX.value = 50 + Math.sin(idleAngle) * 25
+    glowY.value = 50 + Math.cos(idleAngle * 0.7) * 15
+  }
+
+  if (loginRef.value) {
+    loginRef.value.style.setProperty('--gx', String(glowX.value))
+    loginRef.value.style.setProperty('--gy', String(glowY.value))
+  }
+
+  rafId = requestAnimationFrame(animate)
+}
+
+onMounted(() => {
+  rafId = requestAnimationFrame(animate)
+})
+
+onUnmounted(() => {
+  cancelAnimationFrame(rafId)
+})
+
 async function handleLogin() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
@@ -43,9 +87,16 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div class="login">
+  <div ref="loginRef" class="login" @mousemove="onMouseMove">
+    <div class="login-grid" />
+    <svg class="login-curves" viewBox="0 0 120 100" preserveAspectRatio="none">
+      <path class="cv cv--1" d="M -10 22 C 30 18, 40 26, 130 22" />
+      <path class="cv cv--2" d="M -10 50 C 30 46, 40 54, 130 50" />
+      <path class="cv cv--3" d="M -10 78 C 30 74, 40 82, 130 78" />
+    </svg>
+    <div class="login-glow" />
     <div class="login-card">
-      <h2 class="login-title">MES 制造执行系统</h2>
+      <h2 class="login-title">MES系统</h2>
       <el-form ref="formRef" :model="form" :rules="rules" size="large" @keyup.enter="handleLogin">
         <el-form-item prop="username">
           <el-input v-model="form.username" placeholder="请输入账号" />
@@ -72,35 +123,61 @@ async function handleLogin() {
   background: #0b1424;
   position: relative;
   overflow: hidden;
+  isolation: isolate;
 }
-.login::before {
-  content: '';
+.login-grid {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(rgba(64, 158, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(64, 158, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--el-color-primary) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--el-color-primary) 3%, transparent) 1px, transparent 1px);
   background-size: 60px 60px;
+  z-index: 1;
 }
-.login::after {
+.login-curves {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+.login-curves .cv {
+  fill: none;
+  stroke: var(--el-color-primary);
+  stroke-linecap: round;
+}
+.login-curves .cv--1 { stroke-width: 0.1; opacity: 0.08; }
+.login-curves .cv--2 { stroke-width: 0.1; opacity: 0.08; }
+.login-curves .cv--3 { stroke-width: 0.1; opacity: 0.06; }
+.login-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.login-glow::before {
   content: '';
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  pointer-events: none;
-  background: radial-gradient(ellipse at 30% 50%, rgba(64, 158, 255, 0.08) 0%, transparent 50%),
-              radial-gradient(ellipse at 70% 50%, rgba(64, 158, 255, 0.05) 0%, transparent 50%);
+  border-radius: 50%;
+  top: calc(var(--gy, 50) * 1% - 20vh);
+  left: calc(var(--gx, 50) * 1% - 20vh);
+  width: 40vh;
+  height: 40vh;
+  background: radial-gradient(circle, color-mix(in srgb, var(--el-color-primary) 6%, transparent) 0%, transparent 60%);
+  filter: blur(80px);
 }
 .login-card {
   position: relative;
+  z-index: 4;
   width: 400px;
   padding: 48px 40px 40px;
-  background: rgba(255, 255, 255, 0.97);
+  background: rgba(255, 255, 255, 0.27);
   border-radius: 12px;
-  box-shadow: 0 0 40px rgba(64, 158, 255, 0.15);
+  box-shadow:
+    0 0 40px color-mix(in srgb, var(--el-color-primary) 15%, transparent),
+    0 8px 32px rgba(0, 0, 0, 0.2);
 }
 .login-title {
   margin: 0 0 36px;

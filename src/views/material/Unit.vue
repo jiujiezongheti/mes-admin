@@ -1,82 +1,72 @@
 <script setup lang="ts">
-defineOptions({ name: 'UserList' })
-import { ref, onMounted } from 'vue'
+defineOptions({ name: 'UnitList' })
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Download, Upload } from '@element-plus/icons-vue'
-import { getUserList, createUser, updateUser, deleteUser, userExportUrl, userImportUrl } from '@/api/user'
-import { getAllRoles } from '@/api/role'
+import { getUnitList, getAllUnits, createUnit, updateUnit, deleteUnit, unitExportUrl, unitImportUrl } from '@/api/unit'
 import { PAGE_SIZES, DEFAULT_PAGE_SIZE } from '@/config/pagination'
 import { useColumns } from '@/composables/useColumns'
 import { useExport } from '@/composables/useExport'
 import { useSearch } from '@/composables/useSearch'
-import ColumnSettings from '@/components/ColumnSettings.vue'
-import ImportDialog from '@/components/ImportDialog.vue'
 import SearchBar from '@/components/SearchBar.vue'
 import SearchDialog from '@/components/SearchDialog.vue'
 import SearchTags from '@/components/SearchTags.vue'
+import ColumnSettings from '@/components/ColumnSettings.vue'
+import ImportDialog from '@/components/ImportDialog.vue'
 
 const columnDefs = [
-  { prop: 'id', label: 'ID', width: 80 },
-  { prop: 'username', label: '用户名', width: 150 },
-  { prop: 'nickname', label: '昵称', width: 150 },
-  { prop: 'phone', label: '手机号', width: 140 },
-  { prop: 'email', label: '邮箱', width: 180 },
-  { prop: 'role_name', label: '角色', width: 130 },
+  { prop: 'name', label: '单位名称', minWidth: 200 },
+  { prop: 'sort', label: '排序', width: 80 },
   { prop: 'status', label: '状态', width: 80 },
+  { prop: 'remark', label: '备注', minWidth: 200 },
+  { prop: 'created_at', label: '创建时间', width: 180 },
 ]
 
-const { columns, visibleColumns, reset: resetColumns } = useColumns('user', columnDefs)
+const { columns, visibleColumns, reset: resetColumns } = useColumns('unit', columnDefs)
 const { doExport } = useExport()
 
 const searchFields = [
-  { key: 'username', label: '用户名', type: 'input' as const },
-  { key: 'nickname', label: '昵称', type: 'input' as const },
-  { key: 'phone', label: '手机号', type: 'input' as const },
-  { key: 'email', label: '邮箱', type: 'input' as const },
+  { key: 'name', label: '单位名称', type: 'input' as const },
   { key: 'status', label: '状态', type: 'select' as const, options: [{ label: '启用', value: 1 }, { label: '禁用', value: 0 }] },
 ]
 
 const {
   pinnedFields, unpinnedFields, isPinned, fields,
   pin, unpin, replace, reorder,
-} = useSearch('user', searchFields)
+} = useSearch('unit', searchFields)
 
 const tableData = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(DEFAULT_PAGE_SIZE)
 const loading = ref(false)
+const searchForm = ref<Record<string, unknown>>({})
+const searchDialogRef = ref<any>(null)
+const columnSettingsRef = ref<any>(null)
+const importDialogRef = ref<InstanceType<typeof ImportDialog>>()
+const selectedIds = ref<number[]>([])
+
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
-const formRef = ref()
-const roles = ref<any[]>([])
-
-const selectedIds = ref<number[]>([])
-const searchForm = ref<Record<string, unknown>>({})
-
-const form = ref({
+const formRef = ref<any>(null)
+const form = reactive({
   id: 0,
-  username: '',
-  password: '',
-  nickname: '',
-  phone: '',
-  email: '',
+  name: '',
+  sort: 0,
   status: 1,
-  role_ids: [] as number[],
+  remark: '',
 })
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  name: [{ required: true, message: '请输入单位名称', trigger: 'blur' }],
 }
 
 async function fetchData() {
   loading.value = true
   try {
     const params = { page: page.value, pageSize: pageSize.value, ...searchForm.value }
-    if (!params.status && params.status !== 0) {
-      delete params.status
-    }
-    const res = await getUserList(params)
+    if (params.status === '' || params.status === undefined) delete params.status
+    const res = await getUnitList(params)
     tableData.value = res.data.list as any[]
     total.value = res.data.total as number
   } catch (e: any) {
@@ -86,8 +76,8 @@ async function fetchData() {
   }
 }
 
-function handleSearch(form: Record<string, unknown>) {
-  searchForm.value = form
+function handleSearch(f: Record<string, unknown>) {
+  searchForm.value = f
   page.value = 1
   fetchData()
 }
@@ -98,32 +88,27 @@ function handleReset() {
   fetchData()
 }
 
-async function handleAdd() {
-  await loadRoles()
-  dialogTitle.value = '新增用户'
-  form.value = { id: 0, username: '', password: '', nickname: '', phone: '', email: '', status: 1, role_ids: [] }
+function handleAdd() {
+  dialogTitle.value = '新增单位'
+  Object.assign(form, { id: 0, name: '', sort: 0, status: 1, remark: '' })
   dialogVisible.value = true
 }
 
-async function handleEdit(row: any) {
-  await loadRoles()
-  dialogTitle.value = '编辑用户'
-  form.value = {
+function handleEdit(row: any) {
+  dialogTitle.value = '编辑单位'
+  Object.assign(form, {
     id: row.id,
-    username: row.username,
-    password: '',
-    nickname: row.nickname,
-    phone: row.phone || '',
-    email: row.email || '',
+    name: row.name || '',
+    sort: row.sort ?? 0,
     status: row.status ? 1 : 0,
-    role_ids: row.role_ids || [],
-  }
+    remark: row.remark || '',
+  })
   dialogVisible.value = true
 }
 
 async function handleDelete(id: number) {
-  await ElMessageBox.confirm('确定删除该用户吗？', '提示', { type: 'warning' })
-  await deleteUser(id)
+  await ElMessageBox.confirm('确定删除该单位吗？', '提示', { type: 'warning' })
+  await deleteUnit(id)
   ElMessage.success('删除成功')
   fetchData()
 }
@@ -132,39 +117,20 @@ async function handleSave() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
-  if (form.value.id) {
-    await updateUser(form.value)
+  if (form.id) {
+    await updateUnit({ ...form })
     ElMessage.success('修改成功')
   } else {
-    await createUser(form.value)
+    await createUnit({ ...form })
     ElMessage.success('创建成功')
   }
   dialogVisible.value = false
   fetchData()
 }
 
-async function loadRoles() {
-  try {
-    const res = await getAllRoles()
-    roles.value = res.data as any[]
-  } catch {}
-}
-
-function handleExportAll() {
-  doExport(userExportUrl, '用户列表.xlsx')
-}
-
-function handleExportSelected() {
-  if (selectedIds.value.length === 0) {
-    ElMessage.warning('请先选择要导出的用户')
-    return
-  }
-  doExport(userExportUrl, '用户列表.xlsx', selectedIds.value)
-}
-
-function onExpand(form: Record<string, unknown>) {
-  searchForm.value = form
-  searchDialogRef.value?.open(form)
+function onExpand(f: Record<string, unknown>) {
+  searchForm.value = f
+  searchDialogRef.value?.open(f)
 }
 
 function handleRemoveTag(key: string) {
@@ -181,14 +147,21 @@ function handleClearTags() {
   fetchData()
 }
 
-const importDialogRef = ref<InstanceType<typeof ImportDialog>>()
-const searchDialogRef = ref<InstanceType<typeof SearchDialog>>()
+function handleExportAll() {
+  doExport(unitExportUrl, '计量单位.xlsx')
+}
+
+function handleExportSelected() {
+  if (selectedIds.value.length === 0) {
+    ElMessage.warning('请先选择要导出的单位')
+    return
+  }
+  doExport(unitExportUrl, '计量单位.xlsx', selectedIds.value)
+}
 
 function handleImportSuccess() {
   fetchData()
 }
-
-const columnSettingsRef = ref<InstanceType<typeof ColumnSettings>>()
 
 function onSaveColumns(val: any[]) {
   columns.value = val
@@ -200,16 +173,15 @@ function onResetColumns() {
 
 onMounted(() => {
   fetchData()
-  loadRoles()
 })
 </script>
 
 <template>
-  <div class="user-list">
+  <div class="unit-list">
     <el-card class="search-card">
       <SearchBar
         v-model="searchForm"
-        :fields="fields"
+        :fields="pinnedFields"
         :pinned-fields="pinnedFields"
         @search="handleSearch"
         @reset="handleReset"
@@ -228,10 +200,10 @@ onMounted(() => {
     <el-card>
       <div class="toolbar">
         <div class="toolbar-left">
-          <el-button text type="primary" :icon="Plus" v-permission="'admin:user:create'" @click="handleAdd">新增用户</el-button>
-          <el-button text type="primary" :icon="Upload" v-permission="'admin:user:import'" @click="importDialogRef?.open()">导入</el-button>
-          <el-button text type="primary" :icon="Download" v-permission="'admin:user:export'" @click="handleExportAll">全部导出</el-button>
-          <el-button text type="primary" :icon="Download" :disabled="selectedIds.length === 0" v-permission="'admin:user:export'" @click="handleExportSelected">导出选中</el-button>
+          <el-button text type="primary" :icon="Plus" v-permission="'admin:unit:create'" @click="handleAdd">新增单位</el-button>
+          <el-button text type="primary" :icon="Upload" v-permission="'admin:unit:import'" @click="importDialogRef?.open()">导入</el-button>
+          <el-button text type="primary" :icon="Download" v-permission="'admin:unit:export'" @click="handleExportAll">全部导出</el-button>
+          <el-button text type="primary" :icon="Download" :disabled="selectedIds.length === 0" v-permission="'admin:unit:export'" @click="handleExportSelected">导出选中</el-button>
         </div>
         <div class="toolbar-right">
           <ColumnSettings
@@ -256,6 +228,7 @@ onMounted(() => {
           :prop="col.prop"
           :label="col.label"
           :width="col.width"
+          :min-width="col.minWidth"
           show-overflow-tooltip
         >
           <template v-if="col.prop === 'status'" #default="{ row }">
@@ -266,8 +239,8 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="操作" min-width="140" fixed="right">
           <template #default="{ row }">
-            <el-button text size="small" type="primary" v-permission="'admin:user:edit'" @click="handleEdit(row)">编辑</el-button>
-            <el-button text size="small" type="danger" v-permission="'admin:user:delete'" @click="handleDelete(row.id)">删除</el-button>
+            <el-button text size="small" type="primary" v-permission="'admin:unit:edit'" @click="handleEdit(row)">编辑</el-button>
+            <el-button text size="small" type="danger" v-permission="'admin:unit:delete'" @click="handleDelete(row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -285,6 +258,13 @@ onMounted(() => {
       </div>
     </el-card>
 
+    <ImportDialog
+      ref="importDialogRef"
+      title="导入计量单位"
+      :action="unitImportUrl"
+      @success="handleImportSuccess"
+    />
+
     <SearchDialog
       ref="searchDialogRef"
       :fields="fields"
@@ -300,37 +280,19 @@ onMounted(() => {
       @reset="handleReset"
     />
 
-    <ImportDialog
-      ref="importDialogRef"
-      title="导入用户"
-      :action="userImportUrl"
-      @success="handleImportSuccess"
-    />
-
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px" :close-on-click-modal="false">
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" />
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+        <el-form-item label="单位名称" prop="name">
+          <el-input v-model="form.name" placeholder="请输入单位名称" maxlength="30" />
         </el-form-item>
-        <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" type="password" :placeholder="form.id ? '留空则不修改' : ''" />
-        </el-form-item>
-        <el-form-item label="昵称">
-          <el-input v-model="form.nickname" />
-        </el-form-item>
-        <el-form-item label="手机号">
-          <el-input v-model="form.phone" />
-        </el-form-item>
-        <el-form-item label="邮箱">
-          <el-input v-model="form.email" />
+        <el-form-item label="排序">
+          <el-input-number v-model="form.sort" :min="0" style="width:100%" />
         </el-form-item>
         <el-form-item label="状态">
           <el-switch v-model="form.status" :active-value="1" :inactive-value="0" active-text="启用" inactive-text="禁用" />
         </el-form-item>
-        <el-form-item label="角色">
-          <el-select v-model="form.role_ids" multiple placeholder="请选择角色" style="width:100%">
-            <el-option v-for="r in roles" :key="r.id" :label="r.name" :value="r.id" />
-          </el-select>
+        <el-form-item label="备注">
+          <el-input v-model="form.remark" type="textarea" :rows="3" />
         </el-form-item>
       </el-form>
       <template #footer>
