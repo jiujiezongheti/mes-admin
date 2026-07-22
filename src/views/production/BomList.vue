@@ -21,6 +21,7 @@ const columnDefs = [
   { prop: 'material_code', label: '成品编码', width: 120 },
   { prop: 'material_name', label: '成品名称', width: 150 },
   { prop: 'quantity', label: '产出数量', width: 100 },
+  { prop: 'is_default', label: '默认', width: 60 },
   { prop: 'status', label: '状态', width: 80 },
   { prop: 'sort', label: '排序', width: 80 },
   { prop: 'remark', label: '备注', minWidth: 150 },
@@ -65,19 +66,30 @@ const form = ref({
   name: '',
   material_id: null as number | null,
   quantity: 1,
+  is_default: false,
   status: 1,
   sort: 0,
   remark: '',
   materials: [] as any[],
 })
 
-const mainMaterialOptions = ref<any[]>([])
+const productMaterialOptions = ref<any[]>([])
 const materialOptions = ref<any[]>([])
 
 async function loadMaterials() {
   try {
     const res = await getMaterialList({ page: 1, pageSize: 9999 })
     materialOptions.value = (res.data.list as any[]).map((m: any) => ({
+      label: `${m.code} - ${m.name}`,
+      value: m.id,
+    }))
+  } catch {}
+}
+
+async function loadProductMaterials() {
+  try {
+    const res = await getMaterialList({ page: 1, pageSize: 9999, type: '2,3' })
+    productMaterialOptions.value = (res.data.list as any[]).map((m: any) => ({
       label: `${m.code} - ${m.name}`,
       value: m.id,
     }))
@@ -111,6 +123,17 @@ const copyRules = {
   name: [{ required: true, message: '请输入BOM名称', trigger: 'blur' }],
 }
 
+// Substitute dialog
+const subDialogVisible = ref(false)
+const subCurrentRow = ref<any>(null)
+const subForm = ref<{ material_id: number | null; priority: number; remark: string }>({
+  material_id: null,
+  priority: 0,
+  remark: '',
+})
+const subFormRef = ref<any>(null)
+const editingSubIndex = ref<number | null>(null)
+
 async function fetchData() {
   loading.value = true
   try {
@@ -140,38 +163,22 @@ function handleReset() {
   fetchData()
 }
 
-function searchMainMaterial(query: string) {
-  if (!query) { mainMaterialOptions.value = []; return }
-  getMaterialList({ page: 1, pageSize: 20, code: query, name: query })
-    .then((res: any) => {
-      mainMaterialOptions.value = (res.data.list as any[]).map((m: any) => ({
-        label: `${m.code} - ${m.name}`,
-        value: m.id,
-      }))
-    })
-    .catch(() => {})
-}
-
 async function handleAdd() {
-  await loadMaterials()
+  await Promise.all([loadMaterials(), loadProductMaterials()])
   dialogTitle.value = '新增BOM'
   form.value = {
-    id: 0, code: '', name: '', material_id: null, quantity: 1, status: 1, sort: 0, remark: '',
+    id: 0, code: '', name: '', material_id: null, quantity: 1, is_default: false, status: 1, sort: 0, remark: '',
     materials: [],
   }
-  mainMaterialOptions.value = []
   dialogVisible.value = true
 }
 
 async function handleEdit(row: any) {
-  await loadMaterials()
+  await Promise.all([loadMaterials(), loadProductMaterials()])
   dialogTitle.value = '编辑BOM'
   try {
     const res = await getBomDetail(row.id)
     const data = res.data as any
-    mainMaterialOptions.value = data.material_id
-      ? [{ label: `${data.material_code} - ${data.material_name}`, value: data.material_id }]
-      : []
 
     const materials = (data.materials || []).map((m: any) => {
       const rowData: any = {
@@ -183,6 +190,17 @@ async function handleEdit(row: any) {
         _key: Date.now() + Math.random(),
         _bomOptions: [] as any[],
         _bomLoaded: false,
+        substitutes: (m.substitutes || []).map((s: any) => ({
+          material_id: s.material_id,
+          material_name: s.material_name || '',
+          material_code: s.material_code || '',
+          priority: s.priority ?? 0,
+          remark: s.remark || '',
+        })),
+      }
+
+      if (m.child_bom_id && m.child_bom_code) {
+        rowData._bomOptions = [{ label: `${m.child_bom_code} - ${m.child_bom_name}`, value: m.child_bom_id }]
       }
 
       return rowData
@@ -194,6 +212,7 @@ async function handleEdit(row: any) {
       name: data.name || '',
       material_id: data.material_id ?? null,
       quantity: data.quantity ?? 1,
+      is_default: !!data.is_default,
       status: data.status ? 1 : 0,
       sort: data.sort ?? 0,
       remark: data.remark || '',
@@ -222,6 +241,7 @@ function addMaterialRow() {
     _key: Date.now() + Math.random(),
     _bomOptions: [],
     _bomLoaded: false,
+    substitutes: [],
   })
 }
 
@@ -263,6 +283,11 @@ async function handleSave() {
       loss_rate: m.loss_rate ?? 0,
       child_bom_id: m.child_bom_id || null,
       remark: m.remark,
+      substitutes: (m.substitutes || []).map((s: any) => ({
+        material_id: s.material_id,
+        priority: s.priority ?? 0,
+        remark: s.remark || '',
+      })),
     })),
   }
   delete payload._key
@@ -316,6 +341,7 @@ function handleImportSuccess() {
 // BOM Tree
 async function handleShowTree(row: any) {
   treeLoading.value = true
+  treeData.value = []
   treeDialogVisible.value = true
   try {
     const res = await getBomTree(row.id)
@@ -334,7 +360,7 @@ function mapTreeNode(node: any): any {
   if (!node) return node
   return {
     ...node,
-    _key: node.type + '_' + node.id,
+    _key: treeRootKey.value + '_' + node.type + '_' + node.id,
     children: (node.children || []).map(mapTreeNode),
   }
 }
@@ -377,6 +403,27 @@ async function handleCopySave() {
   } catch (e: any) {
     ElMessage.error(e.message)
   }
+}
+
+// Substitute dialog
+function openSubDialog(row: any) {
+  subCurrentRow.value = row
+  if (!row.substitutes) row.substitutes = []
+  subForm.value = { material_id: null, priority: 0, remark: '' }
+  editingSubIndex.value = null
+  subDialogVisible.value = true
+}
+
+function addSubRow() {
+  subCurrentRow.value.substitutes.push({
+    material_id: null,
+    priority: 0,
+    remark: '',
+  })
+}
+
+function removeSubRow(index: number) {
+  subCurrentRow.value.substitutes.splice(index, 1)
 }
 
 function onSaveColumns(val: any[]) {
@@ -452,6 +499,10 @@ onMounted(() => {
               {{ row.status ? '启用' : '禁用' }}
             </el-tag>
           </template>
+          <template v-else-if="col.prop === 'is_default'" #default="{ row }">
+            <el-tag v-if="row.is_default" type="primary" size="small" effect="dark">默认</el-tag>
+            <span v-else style="color:#c0c4cc">—</span>
+          </template>
         </el-table-column>
         <el-table-column label="操作" min-width="200" fixed="right">
           <template #default="{ row }">
@@ -516,14 +567,19 @@ onMounted(() => {
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="成品物料" prop="material_id">
-              <el-select v-model="form.material_id" placeholder="请搜索选择成品物料" clearable filterable remote :remote-method="searchMainMaterial" style="width:100%">
-                <el-option v-for="o in mainMaterialOptions" :key="o.value" :label="o.label" :value="o.value" />
+              <el-select v-model="form.material_id" placeholder="请选择成品物料" clearable filterable style="width:100%">
+                <el-option v-for="o in productMaterialOptions" :key="o.value" :label="o.label" :value="o.value" />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="产出数量">
               <el-input-number v-model="form.quantity" :min="0" :precision="2" style="width:100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="默认BOM">
+              <el-switch v-model="form.is_default" :active-value="true" :inactive-value="false" :disabled="form.is_default && form.id !== 0" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -578,8 +634,9 @@ onMounted(() => {
                   <el-input v-model="row.remark" size="small" />
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="60">
-                <template #default="{ $index }">
+              <el-table-column label="操作" min-width="120">
+                <template #default="{ row, $index }">
+                  <el-button text size="small" type="primary" @click="openSubDialog(row)">替代料</el-button>
                   <el-button text size="small" type="danger" :icon="Delete" @click="removeMaterialRow($index)" />
                 </template>
               </el-table-column>
@@ -610,7 +667,7 @@ onMounted(() => {
     </el-dialog>
 
     <!-- BOM 树展开弹窗 -->
-    <el-dialog :model-value="treeDialogVisible" @update:model-value="treeDialogVisible = $event" title="BOM结构" :width="850" :close-on-click-modal="false" top="5vh">
+    <el-dialog :model-value="treeDialogVisible" @update:model-value="treeDialogVisible = $event" title="BOM结构" :width="960" :close-on-click-modal="false" top="5vh">
       <template #header>
         <span>BOM结构: {{ treeDialogTitle }}</span>
       </template>
@@ -620,19 +677,20 @@ onMounted(() => {
           :data="treeData.map(mapTreeNode)"
           row-key="_key"
           :tree-props="{ children: 'children' }"
-          :indent="0"
+          :indent="16"
           stripe
           size="small"
           default-expand-all
+          class="tree-table"
         >
-          <el-table-column label="类型" width="80">
+          <el-table-column label="类型" width="200">
             <template #default="{ row }">
               <el-tag v-if="row.type === 'bom'" size="small" type="warning">BOM</el-tag>
               <el-tag v-else size="small" type="success">物料</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="编码" prop="code" width="150" />
-          <el-table-column label="名称" prop="name" min-width="160" />
+          <el-table-column label="编码" prop="code" width="160" />
+          <el-table-column label="名称" prop="name" min-width="180" />
           <el-table-column label="用量" prop="quantity" width="80" align="center" />
           <el-table-column label="损耗率" width="80" align="center">
             <template #default="{ row }">
@@ -640,7 +698,7 @@ onMounted(() => {
               <span v-else>-</span>
             </template>
           </el-table-column>
-          <el-table-column label="说明" min-width="200">
+          <el-table-column label="说明" min-width="240">
             <template #default="{ row }">
               <span v-if="row.type === 'bom'" style="color:#909399">产出: {{ row.material_code }} - {{ row.material_name }}</span>
               <el-button v-else text size="small" type="primary" :icon="Search" @click="handleShowWhereUsed(row.id, row.name)">反查</el-button>
@@ -676,14 +734,51 @@ onMounted(() => {
           <el-input v-model="copyForm.name" />
         </el-form-item>
         <el-form-item label="成品物料">
-          <el-select v-model="copyForm.material_id" placeholder="请搜索选择成品物料" clearable filterable remote :remote-method="searchMainMaterial" style="width:100%">
-            <el-option v-for="o in mainMaterialOptions" :key="o.value" :label="o.label" :value="o.value" />
+          <el-select v-model="copyForm.material_id" placeholder="请选择成品物料" clearable filterable style="width:100%">
+            <el-option v-for="o in productMaterialOptions" :key="o.value" :label="o.label" :value="o.value" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button text @click="copyDialogVisible = false">取消</el-button>
         <el-button text type="primary" @click="handleCopySave">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 替代料弹窗 -->
+    <el-dialog v-model="subDialogVisible" title="替代物料管理" width="600px" :close-on-click-modal="false">
+      <div style="margin-bottom:12px;color:#606266">
+        当前物料：<strong>{{ subCurrentRow?.material_name || '未选择' }}</strong>
+      </div>
+      <div style="margin-bottom:8px">
+        <el-button text type="primary" size="small" :icon="Plus" @click="addSubRow">添加替代料</el-button>
+      </div>
+      <el-table :data="subCurrentRow?.substitutes || []" size="small" stripe>
+        <el-table-column label="替代物料" min-width="220">
+          <template #default="{ row }">
+            <el-select v-model="row.material_id" placeholder="请选择物料" clearable filterable style="width:100%">
+              <el-option v-for="o in materialOptions" :key="o.value" :label="o.label" :value="o.value" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="优先级" width="80">
+          <template #default="{ row }">
+            <el-input-number v-model="row.priority" :min="0" :controls="false" style="width:100%" />
+          </template>
+        </el-table-column>
+        <el-table-column label="备注" min-width="140">
+          <template #default="{ row }">
+            <el-input v-model="row.remark" size="small" />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="60">
+          <template #default="{ $index }">
+            <el-button text size="small" type="danger" :icon="Delete" @click="removeSubRow($index)" />
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button text @click="subDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>
@@ -721,6 +816,18 @@ onMounted(() => {
 .sub-table-title {
   font-size: 13px;
   color: #606266;
+}
+
+.tree-table .el-table__row > .el-table__cell:first-child {
+  position: relative;
+}
+.tree-table .el-table__row > .el-table__cell:first-child::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed #dcdfe6;
 }
 
 </style>

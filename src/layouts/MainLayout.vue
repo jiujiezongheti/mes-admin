@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { Expand, Fold, Odometer, UserFilled, Setting, User, Lock, Goods, List } from '@element-plus/icons-vue'
+import { Expand, Fold, Odometer, UserFilled, Setting, User, Lock, Goods, List, Collection } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useTabsStore } from '@/stores/tabs'
 import TabsBar from '@/components/TabsBar.vue'
@@ -57,6 +57,17 @@ const menuGroups: MenuGroup[] = [
     icon: List,
     children: [
       { path: '/production/bom', label: 'BOM管理', perm: 'admin:bom:list' },
+      { path: '/production/order', label: '工单管理', perm: 'admin:order:list' },
+    ],
+  },
+  {
+    label: '仓储管理',
+    icon: Collection,
+    children: [
+      { path: '/warehouse/list', label: '仓库管理', perm: 'admin:warehouse:list' },
+      { path: '/stock/inventory', label: '库存管理', perm: 'admin:stock:list' },
+      { path: '/stock/record', label: '库存流水', perm: 'admin:stock:list' },
+      { path: '/stock/check', label: '库存盘点', perm: 'admin:stock:check' },
     ],
   },
 ]

@@ -55,6 +55,36 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'BOM管理', componentName: 'BomList' },
         component: () => import('@/views/production/BomList.vue'),
       },
+      {
+        path: 'production/order',
+        name: '工单管理',
+        meta: { title: '工单管理', componentName: 'OrderList' },
+        component: () => import('@/views/production/OrderList.vue'),
+      },
+      {
+        path: 'warehouse/list',
+        name: '仓库管理',
+        meta: { title: '仓库管理', componentName: 'WarehouseList' },
+        component: () => import('@/views/warehouse/WarehouseList.vue'),
+      },
+      {
+        path: 'stock/inventory',
+        name: '库存管理',
+        meta: { title: '库存管理', componentName: 'InventoryList' },
+        component: () => import('@/views/stock/InventoryList.vue'),
+      },
+      {
+        path: 'stock/record',
+        name: '库存流水',
+        meta: { title: '库存流水', componentName: 'StockRecord' },
+        component: () => import('@/views/stock/StockRecord.vue'),
+      },
+      {
+        path: 'stock/check',
+        name: '库存盘点',
+        meta: { title: '库存盘点', componentName: 'InventoryCheck' },
+        component: () => import('@/views/stock/InventoryCheck.vue'),
+      },
     ],
   },
 ]
