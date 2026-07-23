@@ -56,3 +56,24 @@ export function getCheckItems(id: number) {
 export function completeCheck(data: Record<string, unknown>) {
   return request.post<any, ApiResponse<null>>('/admin/stock/check/complete', data)
 }
+
+// ===== 盘点任务（移动端盲盘） =====
+export function getCheckTaskList(params: Record<string, unknown>) {
+  return request.get<any, ApiResponse<PageResult<Record<string, unknown>>>>('/admin/check-task/list', { params })
+}
+
+export function getCheckTaskDetail(id: number) {
+  return request.get<any, ApiResponse<any>>('/admin/check-task/detail', { params: { id } })
+}
+
+export function approveCheckTask(id: number) {
+  return request.post<any, ApiResponse<null>>('/admin/check-task/approve', { id })
+}
+
+export function rejectCheckTask(id: number) {
+  return request.post<any, ApiResponse<null>>('/admin/check-task/reject', { id })
+}
+
+export function createCheckTask(data: Record<string, unknown>) {
+  return request.post<any, ApiResponse<null>>('/admin/check-task/create', data)
+}

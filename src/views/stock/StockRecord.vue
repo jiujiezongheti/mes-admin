@@ -39,9 +39,8 @@ const searchFields = [
   { key: 'warehouse_id', label: '仓库', type: 'select' as const, options: warehouseOptions },
   { key: 'material_code', label: '物料编码', type: 'input' as const },
   { key: 'type', label: '类型', type: 'select' as const, options: typeOptions },
-  { key: 'start_date', label: '开始日期', type: 'input' as const },
-  { key: 'end_date', label: '结束日期', type: 'input' as const },
   { key: 'source_type', label: '来源', type: 'input' as const },
+  { key: 'created_by', label: '操作人', type: 'input' as const },
 ]
 
 const {
